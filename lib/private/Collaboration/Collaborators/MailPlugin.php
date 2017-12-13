@@ -68,6 +68,9 @@ class MailPlugin implements ISearchPlugin {
 		$addressBookContacts = $this->contactsManager->search($search, ['EMAIL', 'FN']);
 		$lowerSearch = strtolower($search);
 		foreach ($addressBookContacts as $contact) {
+			if (isset($contact['isLocalSystemBook'])) {
+				continue;
+			}
 			if (isset($contact['EMAIL'])) {
 				$emailAddresses = $contact['EMAIL'];
 				if (!is_array($emailAddresses)) {
