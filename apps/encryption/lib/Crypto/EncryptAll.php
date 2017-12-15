@@ -28,6 +28,8 @@ namespace OCA\Encryption\Crypto;
 
 use OC\Encryption\Exceptions\DecryptionFailedException;
 use OC\Files\View;
+use OC\HintException;
+use OCP\Lock\LockedException;
 use OCA\Encryption\KeyManager;
 use OCA\Encryption\Users\Setup;
 use OCA\Encryption\Util;
@@ -220,7 +222,22 @@ class EncryptAll {
 		} else {
 			foreach ($this->userPasswords as $uid => $password) {
 				$userCount = "$uid ($userNo of $numberOfUsers)";
-				$this->encryptUsersFiles($uid, $progress, $userCount);
+				try {
+                    $progress->setMessage("PV: Start encyption for $userCount");
+                                        $progress->advance();
+					$this->encryptUsersFiles($uid, $progress, $userCount);
+				} catch (Exception $e) {
+					$progress->setMessage("PV: Stop encryption for user $userCount: $uid caused by the following exception". $e->getMessage());
+                        $progress->advance();
+                } catch (HintException $he) {
+                        $progress->setMessage("PV: Stop encryption for user $userCount: $uid caused by HintException: $he");
+                        $progress->advance();
+                }  catch (LockedException $le) {
+                        $progress->setMessage("PV: Stop encryption for user $userCount: $uid caused by LockedException: $le");
+                        $progress->advance();
+                }
+
+
 				$userNo++;
 			}
 		}
@@ -263,7 +280,6 @@ class EncryptAll {
 		$this->setupUserFS($uid);
 		$directories = array();
 		$directories[] =  '/' . $uid . '/files';
-
 		while($root = array_pop($directories)) {
 			$content = $this->rootView->getDirectoryContent($root);
 			foreach ($content as $file) {
@@ -272,12 +288,29 @@ class EncryptAll {
 					$directories[] = $path;
 					continue;
 				} else {
-					$progress->setMessage("encrypt files for user $userCount: $path");
-					$progress->advance();
-					if($this->encryptFile($path) === false) {
-						$progress->setMessage("encrypt files for user $userCount: $path (already encrypted)");
-						$progress->advance();
-					}
+					if($this->rootView->file_exists($path)){
+                        $progress->setMessage("encrypt files for user $userCount: $path");
+                        $progress->advance();
+                        try {
+                            if($this->encryptFile($path) === false) {
+                                $progress->setMessage("encrypt files for user $userCount: $path (already encrypted)");
+                                $progress->advance();
+                            }
+                        } catch (Exception $e) {
+                            $progress->setMessage("PV: Stop file encryption for user $userCount: $path by the following exception". $e->getMessage());
+                            $progress->advance();
+                        } catch (HintException $he) {
+                                $progress->setMessage("PV: Stop file encryption for user $userCount: $path caused by HintException: $he");
+                                $progress->advance();
+                        }  catch (LockedException $le) {
+                                $progress->setMessage("PV: Stop file encryption for user $userCount: $path caused by LockedException: $le");
+                                $progress->advance();
+                        }
+
+                    } else {
+                        $progress->setMessage("PV: Could not encrypt file for user $userCount: $path. File not found (make sure its a shared file)");
+                        $progress->advance();
+                    }
 				}
 			}
 		}

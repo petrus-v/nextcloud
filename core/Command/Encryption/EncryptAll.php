@@ -114,7 +114,7 @@ class EncryptAll extends Command {
 		$output->writeln('Please ensure that no user accesses their files during this time!');
 		$output->writeln('Note: The encryption module you use determines which files get encrypted.');
 		$output->writeln('');
-		$question = new ConfirmationQuestion('Do you really want to continue? (y/n) ', false);
+		$question = new ConfirmationQuestion('Do you really want to continue? (y/n) ', true);
 		if ($this->questionHelper->ask($input, $output, $question)) {
 			$this->forceMaintenanceAndTrashbin();
 
